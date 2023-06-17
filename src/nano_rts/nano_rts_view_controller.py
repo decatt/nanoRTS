@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys, os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/'+'..'))
+
 from typing import List, Union
 
 import pygame

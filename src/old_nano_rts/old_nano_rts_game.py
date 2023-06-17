@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys, os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/'+'..'))
+
 """
 Defines a very simple 'rts' game involving control of a number of units.
 Coordination of the units gives a combinatorial action space which
@@ -106,7 +109,7 @@ class NanoRTSModel(MultiUnitGameModel):
         # number of actions is exponential in the number of units
         return self.actions_per_unit ** len(self.state.units)
 
-    def action_to_move(self, action: int) -> (int, int):
+    def action_to_move(self, action: int) -> Tuple(int, int):
         """
         Converts an action into a move.
         """
@@ -117,7 +120,7 @@ class NanoRTSModel(MultiUnitGameModel):
 
     # todo: introduce the spawning of new units in response to resource collection
 
-    def update_unit(self, unit: UnitState, move: (int, int)) -> UnitState:
+    def update_unit(self, unit: UnitState, move: Tuple(int, int)) -> UnitState:
         """
         Updates state single unit and checks for collisions with resources
         """
