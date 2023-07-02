@@ -7,10 +7,9 @@ import pygame
 import time
 
 class Game:
-    def __init__(self, map_path:str, ai1:Agent, ai2:Agent, render:bool = True, slow_down_time:float = 0.01):
+    def __init__(self, map_path:str, render:bool = True, slow_down_time:float = 0.01):
         self.gs = GameState(map_path)
-        self.ai1 = ai1
-        self.ai2 = ai2
+        self.map_path = map_path
         self.do_render = render
         self.slow_down_time = slow_down_time
 
@@ -44,9 +43,25 @@ class Game:
             player2_available_units = self.gs.get_player_available_units(1)
             if len(player1_available_units) > 0 or len(player2_available_units) > 0:
                 break
-            
-            
-
+            self.gs.update()
+    
+    def step_action_list(self, action_list):
+        if self.do_render:
+            self.render()
+            time.sleep(self.slow_down_time)
+        for action in action_list:
+            unit_id, action_type, target_pos, produce_type = action
+            if action_type == 'move':
+                self.gs.begin_move_unit(unit_id, target_pos)
+            elif action_type == 'attack':
+                self.gs.begin_attack_unit(unit_id, target_pos)
+            elif action_type == 'harvest':
+                self.gs.begin_harvest_unit(unit_id, target_pos)
+            elif action_type == 'return':
+                self.gs.begin_return_unit(unit_id, target_pos)
+            elif action_type == 'produce':
+                self.gs.begin_produce_unit(unit_id, target_pos, produce_type)
+        self.gs.update()
 
     def render(self):
         PLAYER_COLORS = {-1:(0,255,0), 0:(255,0,0), 1:(0,0,255)}
@@ -119,25 +134,8 @@ class Game:
                 pygame.draw.rect(self.viewer, (0,255,0), (x, y, hp_bar_width, self.line_width))
         pygame.display.update()
 
-
-if __name__ == "__main__":
-    map_path = 'maps\EightBasesWorkers16x12.xml'
-    ai1 = Agent(0)
-    ai2 = Agent(1)
-    game = Game(map_path, ai1, ai2)
-    while True:
-        if game.gs.game_time == 255:
-            print("draw")
-        action1 = ai1.get_biased_random_action(game.gs)
-        action2 = ai2.get_random_action(game.gs)
-        print(action1)
-        print(action2)
-        print(game.gs.game_time)
-        game.step(action1)
-        game.step(action2)
-        if game.gs.game_result() is not None:
-            print(game.gs.game_result())
-            break
+    def reset(self):
+        self.gs = GameState(self.map_path)
 
 
             

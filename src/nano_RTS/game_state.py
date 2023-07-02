@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 class GameState:
-    def __init__(self,path='maps//bases8x8.xml') -> None:
+    def __init__(self,path) -> None:
         self.unit_types = load_unit_types() # unit_type_name -> unit_type
         self.units = dict() # unit_id -> unit
         self.units_pos = dict() # unit_int_pos -> unit

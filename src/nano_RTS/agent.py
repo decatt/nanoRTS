@@ -16,7 +16,6 @@ class Agent:
             return (None,None,None,None)
         all_available_actions = []
         for unit_id in units:
-            unit_id = units[np.random.randint(len(units))]
             available_actions = gs.get_available_actions(unit_id)
             if len(available_actions) == 0:
                 continue
@@ -32,7 +31,6 @@ class Agent:
             return (None,None,None,None)
         all_available_actions = []
         for unit_id in units:
-            unit_id = units[np.random.randint(len(units))]
             available_actions = gs.get_available_actions(unit_id)
             if len(available_actions) == 0:
                 continue
@@ -48,3 +46,16 @@ class Agent:
             elif action[1] == 'harvest':
                 return action
         return all_available_actions[np.random.randint(len(all_available_actions))]
+    
+    def get_random_action_list(self,gs:GameState):
+        gs.get_units_pos()
+        units = gs.get_player_available_units(self.player_id)
+        action_list = []
+        if len(units) == 0:
+            return []
+        for unit_id in units:
+            unit_available_actions = gs.get_available_actions(unit_id)
+            if len(unit_available_actions) == 0:
+                continue
+            action_list.append(unit_available_actions[np.random.randint(len(unit_available_actions))])
+        return action_list
