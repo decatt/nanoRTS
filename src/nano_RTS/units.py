@@ -29,7 +29,7 @@ class UnitType:
         self.producedBy = []
 
 class Unit:
-    def __init__(self,unit_id:int,player_id:int, pos:int, unit_type:UnitType, resources:int = 0) -> None:
+    def __init__(self,unit_id:int,player_id:int, pos:int, map_width:int, unit_type:UnitType, resources:int = 0) -> None:
         self.unit_id = unit_id
         self.player_id = player_id
         self.pos = pos
@@ -40,6 +40,10 @@ class Unit:
         self.current_action_target = -1
         self.carried_resource = resources
         self.building_unit_type = None
+        self.width = map_width
+
+    def busy(self):
+        return self.current_action is not None
 
 def load_unit_types(path='UnitTypeTable.json'):
     with open(path, 'r') as f:

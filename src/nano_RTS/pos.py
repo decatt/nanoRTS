@@ -41,6 +41,9 @@ class Pos:
         else:
             return -1
         
+    def distance(self, pos:'Pos')->int:
+        return abs(self.x - pos.x) + abs(self.y - pos.y)
+        
 def next_int_pos(int_pos:int, dir:Pos, width:int)->int:
     int_pos_x = int_pos % width
     int_pos_y = int_pos // width
@@ -58,5 +61,12 @@ def is_in_range(int_pos1:int,int_pos2:int,width:int,range:int):
         return True
     else:
         return False
+    
+def distance_int_pos(int_pos1:int,int_pos2:int,width:int):
+    int_pos_x1 = int_pos1 % width
+    int_pos_y1 = int_pos1 // width
+    int_pos_x2 = int_pos2 % width
+    int_pos_y2 = int_pos2 // width
+    return abs(int_pos_x1 - int_pos_x2) + abs(int_pos_y1 - int_pos_y2)
         
     

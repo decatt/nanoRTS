@@ -1,6 +1,7 @@
 from units import Unit, UnitType, load_unit_types
 from player import Player
-from pos import Pos, next_int_pos, is_in_range
+from pos import Pos, next_int_pos, is_in_range, distance_int_pos
+from collections import deque
 
 import xml.etree.ElementTree as ET
 import numpy as np
@@ -18,7 +19,6 @@ class GameState:
         self.load_map(path)
         self.game_time = 0
         self.get_units_pos()
-        self.grid_state = np.zeros((self.height, self.width, 27), dtype=np.int32)
 
     def load_map(self, path='maps//bases8x8.xml'):
         tree = ET.parse(path)
@@ -38,7 +38,7 @@ class GameState:
             y = int(u.get('y'))
             carried_resource = int(u.get('resources'))
             unit_type = self.unit_types[unit_type]
-            self.units[self.produce_unit_id] = Unit(self.produce_unit_id,player_id, Pos(x, y,self.width).int_pos, unit_type, carried_resource)
+            self.units[self.produce_unit_id] = Unit(self.produce_unit_id,player_id, Pos(x, y,self.width).int_pos, self.width, unit_type, carried_resource)
             self.produce_unit_id += 1
 
     def get_units_pos(self):
@@ -74,62 +74,127 @@ class GameState:
     #24: harvest
     #25: return
     #26: produce"""
+    def unit_to_vector(self, unit):
+        vector = np.zeros(27)
+        if unit.current_hp == 0:
+            vector[0] = 1
+        elif unit.current_hp == 1:
+            vector[1] = 1
+        elif unit.current_hp == 2:
+            vector[2] = 1
+        elif unit.current_hp == 3:
+            vector[3] = 1
+        else:
+            vector[4] = 1
+        if unit.carried_resource == 0:
+            vector[5] = 1
+        elif unit.carried_resource == 1:
+            vector[6] = 1
+        elif unit.carried_resource == 2:
+            vector[7] = 1
+        elif unit.carried_resource == 3:
+            vector[8] = 1
+        else:
+            vector[9] = 1
+        if unit.player_id == -1:
+            vector[10] = 1
+        elif unit.player_id == 0:
+            vector[11] = 1
+        else:
+            vector[12] = 1
+        if unit.unit_type.isResource:
+            vector[14] = 1
+        elif unit.unit_type.isStockpile:
+            vector[15] = 1
+        elif unit.unit_type.name == 'Barracks':
+            vector[16] = 1
+        elif unit.unit_type.name == 'Worker':
+            vector[17] = 1
+        elif unit.unit_type.name == 'Light':
+            vector[18] = 1
+        elif unit.unit_type.name == 'Heavy':
+            vector[19] = 1
+        elif unit.unit_type.name == 'Ranged':
+            vector[20] = 1
+        if unit.current_action is None:
+            vector[21] = 1
+        elif unit.current_action == 'move':
+            vector[22] = 1
+        elif unit.current_action == 'attack':
+            vector[23] = 1
+        elif unit.current_action == 'harvest':
+            vector[24] = 1
+        elif unit.current_action == 'return':
+            vector[25] = 1
+        elif unit.current_action == 'produce':
+            vector[26] = 1
+        return vector
+
     def get_grid_state(self):
+        grid_state = np.zeros((self.height, self.width, 27), dtype=np.int32)
         for unit in self.units.values():
             x=unit.pos % self.width
             y=unit.pos // self.width
-            if unit.current_hp == 0:
-                self.grid_state[y][x][0] = 1
-            elif unit.current_hp == 1:
-                self.grid_state[y][x][1] = 1
-            elif unit.current_hp == 2:
-                self.grid_state[y][x][2] = 1
-            elif unit.current_hp == 3:
-                self.grid_state[y][x][3] = 1
-            else:
-                self.grid_state[y][x][4] = 1
-            if unit.carried_resource == 0:
-                self.grid_state[y][x][5] = 1
-            elif unit.carried_resource == 1:
-                self.grid_state[y][x][6] = 1
-            elif unit.carried_resource == 2:
-                self.grid_state[y][x][7] = 1
-            elif unit.carried_resource == 3:
-                self.grid_state[y][x][8] = 1
-            else:
-                self.grid_state[y][x][9] = 1
-            if unit.player_id == -1:
-                self.grid_state[y][x][10] = 1
-            elif unit.player_id == 0:
-                self.grid_state[y][x][11] = 1
-            else:
-                self.grid_state[y][x][12] = 1
-            if unit.unit_type.isResource:
-                self.grid_state[y][x][14] = 1
-            elif unit.unit_type.isStockpile:
-                self.grid_state[y][x][15] = 1
-            elif unit.unit_type.name == 'Barracks':
-                self.grid_state[y][x][16] = 1
-            elif unit.unit_type.name == 'Worker':
-                self.grid_state[y][x][17] = 1
-            elif unit.unit_type.name == 'Light':
-                self.grid_state[y][x][18] = 1
-            elif unit.unit_type.name == 'Heavy':
-                self.grid_state[y][x][19] = 1
-            elif unit.unit_type.name == 'Ranged':
-                self.grid_state[y][x][20] = 1
-            if unit.current_action is None:
-                self.grid_state[y][x][21] = 1
-            elif unit.current_action == 'move':
-                self.grid_state[y][x][22] = 1
-            elif unit.current_action == 'attack':
-                self.grid_state[y][x][23] = 1
-            elif unit.current_action == 'harvest':
-                self.grid_state[y][x][24] = 1
-            elif unit.current_action == 'return':
-                self.grid_state[y][x][25] = 1
-            elif unit.current_action == 'produce':
-                self.grid_state[y][x][26] = 1
+            grid_state[y,x,:] = self.unit_to_vector(unit)
+        return grid_state
+    
+    def get_vector_state(self, player_id, num_closest_units=16):
+        available_units = self.get_player_available_units(player_id)
+        if len(available_units) == 0:
+            return None
+        vector_state = dict()
+        for unit_id in available_units:
+            unit_pos = self.units[unit_id].pos
+            vector_state[unit_pos] = []
+        for unit in list(self.units.values()):
+            unit_feature = np.zeros(29)
+            unit_feature[:27] = self.unit_to_vector(unit)
+            unit_feature[27] = unit.pos % self.width
+            unit_feature[28] = unit.pos // self.width
+
+            for unit_pos in list(vector_state.keys()):
+                d = distance_int_pos(unit_pos, unit.pos, self.width)
+                vector_state[unit_pos].append((d,unit_feature))
+
+        for unit_pos in list(vector_state.keys()):
+            vector_state[unit_pos].sort(key=lambda x:x[0])
+            if len(vector_state[unit_pos]) > num_closest_units:
+                vector_state[unit_pos] = vector_state[unit_pos][:num_closest_units]
+            if len(vector_state[unit_pos]) < num_closest_units:
+                for _ in range(num_closest_units - len(vector_state[unit_pos])):
+                    vector_state[unit_pos].append((-1,np.zeros(29)))
+        return vector_state
+    
+    def get_grid_and_vector_state(self, player_id, num_closest_units=16):
+        grid_state = self.get_grid_state()
+        vector_state = dict()
+        available_units = self.get_player_available_units(player_id)
+        if len(available_units) == 0:
+            return None
+        for unit_id in available_units:
+            unit_pos = self.units[unit_id].pos
+            vector_state[unit_pos] = []
+        for unit in list(self.units.values()):
+            unit_feature = np.zeros(29)
+            unit_x = unit.pos % self.width
+            unit_y = unit.pos // self.width
+            unit_feature[:27] = grid_state[unit_y,unit_x,:]
+            unit_feature[27] = unit_x
+            unit_feature[28] = unit_y
+
+            for unit_pos in list(vector_state.keys()):
+                d = distance_int_pos(unit_pos, unit.pos, self.width)
+                vector_state[unit_pos].append((d,unit_feature))
+
+        for unit_pos in list(vector_state.keys()):
+            vector_state[unit_pos].sort(key=lambda x:x[0])
+            if len(vector_state[unit_pos]) > num_closest_units:
+                vector_state[unit_pos] = vector_state[unit_pos][:num_closest_units]
+            if len(vector_state[unit_pos]) < num_closest_units:
+                for _ in range(num_closest_units - len(vector_state[unit_pos])):
+                    vector_state[unit_pos].append((-1,np.zeros(29)))
+        return vector_state, grid_state
+
 
     def begin_move_unit(self, unit_id:int, target_pos:int):
         # if unit cannot move, do nothing
@@ -327,7 +392,7 @@ class GameState:
             self.buliding_pos.remove(target_pos)
             self.stop_unit_action(unit)
             return
-        self.units[self.produce_unit_id] = Unit(self.produce_unit_id,unit.player_id, target_pos, unit.building_unit_type)
+        self.units[self.produce_unit_id] = Unit(self.produce_unit_id,unit.player_id, target_pos, self.width, unit.building_unit_type)
         self.produce_unit_id += 1
         self.buliding_pos.remove(target_pos)
         self.stop_unit_action(unit)

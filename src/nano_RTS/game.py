@@ -7,11 +7,9 @@ import pygame
 import time
 
 class Game:
-    def __init__(self, map_path:str, render:bool = True, slow_down_time:float = 0.01):
+    def __init__(self, map_path:str):
         self.gs = GameState(map_path)
         self.map_path = map_path
-        self.do_render = render
-        self.slow_down_time = slow_down_time
 
         pygame.init()
         self.shape_size = 32
@@ -35,9 +33,6 @@ class Game:
             self.gs.begin_produce_unit(unit_id, target_pos, produce_type)
 
         while True:
-            if self.do_render:
-                self.render()
-                time.sleep(self.slow_down_time)
             self.gs.update()
             player1_available_units = self.gs.get_player_available_units(0)
             player2_available_units = self.gs.get_player_available_units(1)
@@ -46,9 +41,6 @@ class Game:
             self.gs.update()
     
     def step_action_list(self, action_list):
-        if self.do_render:
-            self.render()
-            time.sleep(self.slow_down_time)
         for action in action_list:
             unit_id, action_type, target_pos, produce_type = action
             if action_type == 'move':
@@ -62,6 +54,12 @@ class Game:
             elif action_type == 'produce':
                 self.gs.begin_produce_unit(unit_id, target_pos, produce_type)
         self.gs.update()
+        result = self.gs.game_result()
+        done = False
+        if result is not None:
+            self.reset()
+            done = True
+        return done, result
 
     def render(self):
         PLAYER_COLORS = {-1:(0,255,0), 0:(255,0,0), 1:(0,0,255)}
@@ -98,7 +96,7 @@ class Game:
             unit_int_pos = unit.pos
             unit_pos = Pos(unit_int_pos % self.gs.width, unit_int_pos // self.gs.width, self.gs.width)
             x = x_start + unit_pos.x * self.shape_size
-            y = y_start + unit_pos.y * self.shape_size            
+            y = y_start + unit_pos.y * self.shape_size    
             player_color = PLAYER_COLORS[unit_player_id]
             unit_type_color = UNIT_TYPE_COLORS[unit_name]
             if unit_name in RECT_UNITS:
@@ -138,6 +136,19 @@ class Game:
         self.gs = GameState(self.map_path)
 
 
+if __name__ == "__main__":
+    map_path = 'maps\melee4x4light2.xml'
+    ai1 = Agent(0)
+    ai2 = Agent(1)
+    game = Game(map_path)
+    while True:
+        game.render()
+        action_list1 = ai1.get_random_action_list(game.gs)
+        action_list2 = ai2.get_random_action_list(game.gs)
+        all_actions = action_list1+action_list2
+        done, result = game.step_action_list(all_actions)
+        if done:
+            print(result)
             
 
 
