@@ -2,7 +2,7 @@ from game import Game
 import numpy as np
 from game_state import GameState
 from torch.multiprocessing import Process
-from agent import Agent
+from agent import AI
 import time
 
 class GameForMultiprocess:
@@ -73,13 +73,24 @@ class GameEnvs:
     def render(self):
         self.games[0].render()
 
+    def get_unit_masks(self, player_id):
+        masks = []
+        for game in self.games:
+            mask = np.zeros(game.gs.height*game.gs.width)
+            for unit_id in list(game.gs.units.keys()):
+                unit = game.gs.units[unit_id]
+                if unit.player_id == player_id and not unit.busy():
+                    mask[unit.pos] = 1
+            masks.append(mask)
+        return masks
+
 
 if __name__ == "__main__":
     num_games = 32
     map_paths = ['maps\\16x16\\basesWorkers16x16.xml' for _ in range(num_games)]
     game_envs = GameEnvs(map_paths)
-    ai0 = Agent(0)
-    ai1 = Agent(1)
+    ai0 = AI(0)
+    ai1 = AI(1)
     start_time = time.time()
     for _ in range(2560):
         #game_envs.render()

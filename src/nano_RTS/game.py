@@ -1,7 +1,7 @@
 from game_state import GameState
 from units import Unit, UnitType, load_unit_types
 from pos import Pos
-from agent import Agent
+from agent import AI
 import numpy as np
 import pygame
 import time
@@ -53,13 +53,15 @@ class Game:
                 self.gs.begin_return_unit(unit_id, target_pos)
             elif action_type == 'produce':
                 self.gs.begin_produce_unit(unit_id, target_pos, produce_type)
-        self.gs.update()
+        r = self.gs.update()
         result = self.gs.game_result()
         done = False
         if result is not None:
             self.reset()
             done = True
-        return done, result
+            if result == "player0":
+                r += 10
+        return r, done, result
 
     def render(self):
         PLAYER_COLORS = {-1:(0,255,0), 0:(255,0,0), 1:(0,0,255)}
@@ -70,9 +72,10 @@ class Game:
             'Light': (255, 255, 0),
             'Heavy': (0, 255, 255),
             'Ranged': (255, 0, 255),
-            'Resource': (0, 255, 0)
+            'Resource': (0, 255, 0),
+            'terrain': (0, 128, 0)
         }
-        RECT_UNITS = {'Base', 'Barracks', 'Resource'}
+        RECT_UNITS = {'Base', 'Barracks', 'Resource', 'terrain'}
         CIRCLE_UNITS = {'Worker', 'Light', 'Heavy', 'Ranged'}
 
         viewer_height = self.gs.height * self.shape_size + self.vacant * 2
@@ -130,6 +133,15 @@ class Game:
                 hp_bar_width = self.shape_size * unit.current_hp // unit.unit_type.hp
                 pygame.draw.rect(self.viewer, (255,0,0), (x, y, max_hp_bar_width, self.line_width))
                 pygame.draw.rect(self.viewer, (0,255,0), (x, y, hp_bar_width, self.line_width))
+            if unit.current_action == "produce":
+                target_pos_int = unit.current_action_target
+                target_pos_x = target_pos_int % self.gs.width
+                target_pos_y = target_pos_int // self.gs.width
+                target_x = x_start + target_pos_x * self.shape_size
+                target_y = y_start + target_pos_y * self.shape_size
+                left_produce_time = unit.execute_current_action_time
+                left_time_bar = self.shape_size * left_produce_time // unit.unit_type.produceTime
+                pygame.draw.rect(self.viewer, (0,255,0), (target_x, target_y, left_time_bar, self.line_width))
         pygame.display.update()
 
     def reset(self):
@@ -137,18 +149,23 @@ class Game:
 
 
 if __name__ == "__main__":
-    map_path = 'maps\melee4x4light2.xml'
-    ai1 = Agent(0)
-    ai2 = Agent(1)
+    map_path = 'maps\\16x16\\basesWorkers16x16.xml'
+    ai1 = AI(0)
+    ai2 = AI(1)
     game = Game(map_path)
+    step = 0
+    start_time = time.time()
     while True:
-        game.render()
+        step += 1
         action_list1 = ai1.get_random_action_list(game.gs)
         action_list2 = ai2.get_random_action_list(game.gs)
         all_actions = action_list1+action_list2
         done, result = game.step_action_list(all_actions)
         if done:
             print(result)
+            print(step)
+            print(time.time() - start_time)
+            print((time.time() - start_time)/step)
             
 
 

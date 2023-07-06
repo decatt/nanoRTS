@@ -15,7 +15,7 @@ class Pos:
         return self.x == __value.x and self.y == __value.y
     
     def __add__(self, __value: object) -> object:
-        return Pos(self.x + __value.x, self.y + __value.y)
+        return Pos(self.x + __value.x, self.y + __value.y, self.w)
     
     def next_pos(self, dir:'Pos')->'Pos':
         return self + dir
@@ -43,6 +43,9 @@ class Pos:
         
     def distance(self, pos:'Pos')->int:
         return abs(self.x - pos.x) + abs(self.y - pos.y)
+    
+    def next_to(self, pos:'Pos')->bool:
+        return self.distance(pos) == 1
         
 def next_int_pos(int_pos:int, dir:Pos, width:int)->int:
     int_pos_x = int_pos % width
@@ -68,5 +71,21 @@ def distance_int_pos(int_pos1:int,int_pos2:int,width:int):
     int_pos_x2 = int_pos2 % width
     int_pos_y2 = int_pos2 // width
     return abs(int_pos_x1 - int_pos_x2) + abs(int_pos_y1 - int_pos_y2)
+
+def int_pos_to_pos(int_pos:int, width:int)->Pos:
+    int_pos_x = int_pos % width
+    int_pos_y = int_pos // width
+    return Pos(int_pos_x, int_pos_y, width)
+
+def int_pos_in_range(int_pos1:int,int_pos2:int,width:int,range:int):
+    int_pos_x1 = int_pos1 % width
+    int_pos_y1 = int_pos1 // width
+    int_pos_x2 = int_pos2 % width
+    int_pos_y2 = int_pos2 // width
+    d = abs(int_pos_x1 - int_pos_x2) + abs(int_pos_y1 - int_pos_y2)
+    if d <= range and d > 0:
+        return True
+    else:
+        return False
         
     
