@@ -1,22 +1,22 @@
 from game_state import GameState
 from units import Unit, UnitType, load_unit_types
-from pos import Pos
+from pos import Pos, int_pos_to_pos
 from agent import AI
 import numpy as np
 import pygame
 import time
 
 class Game:
-    def __init__(self, map_path:str):
+    def __init__(self, map_path:str, max_steps:int = 1000):
         self.gs = GameState(map_path)
         self.map_path = map_path
+        self.max_steps = max_steps
 
         pygame.init()
         self.shape_size = 32
         self.bordersize = self.shape_size // 8
         self.line_width = self.shape_size // 8
         self.vacant = 20
-
         self.viewer = None
 
     def step(self, action):
@@ -43,6 +43,16 @@ class Game:
     def step_action_list(self, action_list):
         for action in action_list:
             unit_id, action_type, target_pos, produce_type = action
+            if unit_id is None:
+                continue
+            if unit_id not in list(self.gs.units.keys()):
+                continue
+            if self.gs.units[unit_id].current_action is not None:
+                continue
+            if target_pos is None:
+                continue
+            if target_pos < 0 or target_pos>=self.gs.width*self.gs.height:
+                continue
             if action_type == 'move':
                 self.gs.begin_move_unit(unit_id, target_pos)
             elif action_type == 'attack':
@@ -53,15 +63,49 @@ class Game:
                 self.gs.begin_return_unit(unit_id, target_pos)
             elif action_type == 'produce':
                 self.gs.begin_produce_unit(unit_id, target_pos, produce_type)
-        r = self.gs.update()
-        result = self.gs.game_result()
+        r, result, game_time = self.gs.update()
         done = False
+        if game_time >= self.max_steps:
+            done = True
+            self.reset()
         if result is not None:
             self.reset()
             done = True
             if result == "player0":
                 r += 10
         return r, done, result
+    
+    def step_action(self, action_list):
+        r = 0
+        for action in action_list:
+            unit_id, action_type, target_pos, produce_type = action
+            if unit_id is None:
+                continue
+            if unit_id not in list(self.gs.units.keys()):
+                continue
+            if self.gs.units[unit_id].current_action is not None:
+                continue
+            if action_type == 'move':
+                self.gs.begin_move_unit(unit_id, target_pos)
+            elif action_type == 'attack':
+                self.gs.begin_attack_unit(unit_id, target_pos)
+            elif action_type == 'harvest':
+                self.gs.begin_harvest_unit(unit_id, target_pos)
+            elif action_type == 'return':
+                self.gs.begin_return_unit(unit_id, target_pos)
+            elif action_type == 'produce':
+                self.gs.begin_produce_unit(unit_id, target_pos, produce_type)
+        while self.gs.get_player_available_units(0) == []:
+            r += self.gs.update()
+            result = self.gs.game_result()
+            if result is not None:
+                self.reset()
+                if result == "player0":
+                    r += 10
+                return r, True, result
+        return r, False, None
+        
+        
 
     def render(self):
         PLAYER_COLORS = {-1:(0,255,0), 0:(255,0,0), 1:(0,0,255)}
@@ -147,6 +191,61 @@ class Game:
     def reset(self):
         self.gs = GameState(self.map_path)
 
+    #1 NOOP, move, harvest, return, produce, attack
+    #2 move: up, right, down, left
+    #3 harvest: up, right, down, left
+    #4 return: up, right, down, left
+    #5 produce: up, right, down, left
+    #6 produce_type: resource, base, barracks, worker, light, heavy, ranged
+    #7 attack_pos: 1~7*7
+    def vector_to_action(self, vector):
+        unit_pos_int = vector[0]
+        unit_pos = int_pos_to_pos(unit_pos_int, self.gs.width)
+        unit_id = None
+        next_pos = [unit_pos_int-self.gs.width, unit_pos_int+1, unit_pos_int+self.gs.width, unit_pos_int-1]
+        if unit_pos_int in list(self.gs.units_pos.keys()):
+            unit = self.gs.units_pos[unit_pos_int]
+            unit_id = unit.unit_id
+        dir = None
+        produce_type = None
+        target_pos = None
+        if vector[1] == 1:
+            unit_action_type = 'move'
+            target_pos = next_pos[vector[2]]
+        elif vector[1] == 2:
+            unit_action_type = 'harvest'
+            target_pos = next_pos[vector[3]]
+        elif vector[1] == 3:
+            unit_action_type = 'return'
+            target_pos = next_pos[vector[4]]
+        elif vector[1] == 4:
+            unit_action_type = 'produce'
+            target_pos = next_pos[vector[5]]
+            if vector[6] == 0:
+                produce_type = 'Resource'
+            elif vector[6] == 1:
+                produce_type = 'Base'
+            elif vector[6] == 2:
+                produce_type = 'Barracks'
+            elif vector[6] == 3:
+                produce_type = 'Worker'
+            elif vector[6] == 4:
+                produce_type = 'Light'
+            elif vector[6] == 5:
+                produce_type = 'Heavy'
+            elif vector[6] == 6:
+                produce_type = 'Ranged'
+        elif vector[1] == 5:
+            unit_action_type = 'attack'
+        else:
+            unit_action_type = 'NOOP'
+
+        if unit_action_type == 'attack':
+            atk_x = vector[6] % 7 - 3
+            atk_y = vector[6] // 7 - 3
+            target_pos = (unit_pos + Pos(atk_x, atk_y)).int_pos
+        return (unit_id, unit_action_type, target_pos, produce_type)
+
 
 if __name__ == "__main__":
     map_path = 'maps\\16x16\\basesWorkers16x16.xml'
@@ -156,11 +255,12 @@ if __name__ == "__main__":
     step = 0
     start_time = time.time()
     while True:
+        game.render()
         step += 1
         action_list1 = ai1.get_random_action_list(game.gs)
         action_list2 = ai2.get_random_action_list(game.gs)
         all_actions = action_list1+action_list2
-        done, result = game.step_action_list(all_actions)
+        done, result, _ = game.step_action_list(all_actions)
         if done:
             print(result)
             print(step)

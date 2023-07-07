@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 class GameState:
-    def __init__(self,path,reward_weight=[10,0,0,0,0]) -> None:
+    def __init__(self,path,reward_weight=[10,1,1,1,1]) -> None:
         self.unit_types = load_unit_types() # unit_type_name -> unit_type
         self.units = dict() # unit_id -> unit
         self.units_pos = dict() # unit_int_pos -> unit
@@ -246,10 +246,14 @@ class GameState:
     def begin_harvest_unit(self, unit_id:int, target_pos:int):
         unit:Unit = self.units[unit_id]
         # if unit cannot harvest, do nothing
+        if unit.current_action is not None:
+            return
         if not unit.unit_type.canHarvest:
             return
         # if unit is not in range, do nothing
         if not is_in_range(unit.pos, target_pos, self.width,1):
+            return
+        if target_pos not in list(self.units_pos.keys()):
             return
         if self.units_pos[target_pos].unit_type.name != 'Resource':
             return
@@ -268,6 +272,8 @@ class GameState:
         # if unit is not in range, do nothing
         if not is_in_range(unit.pos, target_pos, self.width,1):
             return
+        if target_pos not in list(self.units_pos.keys()):
+            return
         if not self.units_pos[target_pos].unit_type.isStockpile:
             return
         if self.units_pos[target_pos].player_id != unit.player_id:
@@ -283,7 +289,8 @@ class GameState:
         # if unit cannot produce, do nothing
         if len(unit.unit_type.produces)==0:
             return
-        # if unit is not in range, do nothing
+        if produce_type_name not in unit.unit_type.produces:
+            return
         if not is_in_range(unit.pos, target_pos, self.width,1):
             return
         if self.players[unit.player_id].resource < produce_type.cost:
@@ -336,6 +343,8 @@ class GameState:
             self.stop_unit_action(unit)
             return 0
         unit.pos = unit.current_action_target
+        self.units[unit.unit_id] = unit
+        self.units_pos[unit.pos] = unit
         self.stop_unit_action(unit)
         return 0
 
@@ -430,6 +439,7 @@ class GameState:
             self.stop_unit_action(unit)
             return 0
         self.units[self.produce_unit_id] = Unit(self.produce_unit_id,unit.player_id, target_pos, self.width, unit.building_unit_type)
+        self.units_pos[target_pos] = self.units[self.produce_unit_id]
         self.produce_unit_id += 1
         self.buliding_pos.remove(target_pos)
         self.stop_unit_action(unit)
@@ -446,13 +456,13 @@ class GameState:
         return 0
 
     def update(self):
+        self.get_units_pos()
         self.game_time += 1
         action_units = [unit for unit in self.units.values() if unit.current_action is not None]
         r = 0
         for unit in action_units:
             r += self.execute_action(unit)
-        self.get_units_pos()
-        return r
+        return r, self.game_result(), self.game_time
         
     def get_player_available_units(self, player_id:int):
         available_units = []
@@ -571,149 +581,58 @@ class GameState:
     #[18:22] produce: up, right, down, left
     #[22:29] produce_type: resource, base, barracks, worker, light, heavy, ranged
     #[29:78] attack_pos: 1~7*7
-    def get_action_masks(self, unit_pos):
+    def get_action_masks(self, unit_pos, player_id):
+        self.get_units_pos()
         action_masks = np.zeros(78)
-        action_masks[0] = 1
+        action_masks[0] = 0
         if unit_pos not in list(self.units_pos.keys()):
             return action_masks
         unit_id = self.units_pos[unit_pos].unit_id
         unit:Unit = self.units[unit_id]
-        up_pos = next_int_pos(self.units[unit_id].pos, Pos(0,1), self.width)
-        right_pos = next_int_pos(self.units[unit_id].pos, Pos(1,0), self.width)
-        down_pos = next_int_pos(self.units[unit_id].pos, Pos(0,-1), self.width)
-        left_pos = next_int_pos(self.units[unit_id].pos, Pos(-1,0), self.width)
-        if up_pos >= 0 and up_pos < self.width * self.height:
-            if up_pos in list(self.units_pos.keys()):
-                up_unit_id = self.units_pos[up_pos].unit_id
-                if up_unit_id in list(self.units.keys()):
-                    up_unit = self.units[up_unit_id]
-                    if unit.unit_type.canHarvest and up_unit.unit_type.name == 'Resource' and up_unit.carried_resource > 0 and unit.carried_resource == 0:
-                        action_masks[2] = 1
-                        action_masks[10] = 1
-                    if unit.unit_type.canReturn and up_unit.unit_type.isStockpile and up_unit.player_id == unit.player_id and unit.carried_resource > 0:
-                        action_masks[3] = 1
-                        action_masks[14] = 1
-            elif up_pos not in self.buliding_pos:
+        if unit.player_id != player_id:
+            return action_masks
+        nextpos = [unit.pos-self.width, unit.pos+1, unit.pos+self.width, unit.pos-1]
+        for i in range(4):
+            pos = nextpos[i]
+            if pos < 0 or pos >= self.width * self.height:
+                continue
+            if pos in self.buliding_pos:
+                continue
+            if pos not in list(self.units_pos.keys()):
+                if unit.unit_type.canMove:
+                    action_masks[1] = 1
+                    action_masks[6+i] = 1
                 if len(unit.unit_type.produces) > 0:
                     action_masks[4] = 1
-                    action_masks[18] = 1
+                    action_masks[18+i] = 1
                     for produce_type in unit.unit_type.produces:
-                        if produce_type == "Resource":
+                        if self.unit_types[produce_type].cost > self.players[unit.player_id].resource:
+                            continue
+                        if produce_type == 'Resource':
                             action_masks[22] = 1
-                        elif produce_type == "Base":
+                        elif produce_type == 'Base':
                             action_masks[23] = 1
-                        elif produce_type == "Barracks":
+                        elif produce_type == 'Barracks':
                             action_masks[24] = 1
-                        elif produce_type == "Worker":
+                        elif produce_type == 'Worker':
                             action_masks[25] = 1
-                        elif produce_type == "Light":
+                        elif produce_type == 'Light':
                             action_masks[26] = 1
-                        elif produce_type == "Heavy":
+                        elif produce_type == 'Heavy':
                             action_masks[27] = 1
-                        elif produce_type == "Ranged":
+                        elif produce_type == 'Ranged':
                             action_masks[28] = 1
-                    if unit.unit_type.canMove:
-                        action_masks[1] = 1
-                        action_masks[6] = 1
-        if right_pos >= 0 and right_pos < self.width * self.height:
-            if right_pos in list(self.units_pos.keys()):
-                right_unit_id = self.units_pos[right_pos].unit_id
-                if right_unit_id in list(self.units.keys()):
-                    right_unit = self.units[right_unit_id]
-                    if unit.unit_type.canHarvest and right_unit.unit_type.name == 'Resource' and right_unit.carried_resource > 0 and unit.carried_resource == 0:
-                        action_masks[2] = 1
-                        action_masks[11] = 1
-                    if unit.unit_type.canReturn and right_unit.unit_type.isStockpile and right_unit.player_id == unit.player_id and unit.carried_resource > 0:
-                        action_masks[3] = 1
-                        action_masks[15] = 1
-            elif right_pos not in self.buliding_pos:
-                if len(unit.unit_type.produces) > 0:
-                    action_masks[4] = 1
-                    action_masks[19] = 1
-                    for produce_type in unit.unit_type.produces:
-                        if produce_type == "Resource":
-                            action_masks[22] = 1
-                        elif produce_type == "Base":
-                            action_masks[23] = 1
-                        elif produce_type == "Barracks":
-                            action_masks[24] = 1
-                        elif produce_type == "Worker":
-                            action_masks[25] = 1
-                        elif produce_type == "Light":
-                            action_masks[26] = 1
-                        elif produce_type == "Heavy":
-                            action_masks[27] = 1
-                        elif produce_type == "Ranged":
-                            action_masks[28] = 1
-                    if unit.unit_type.canMove:
-                        action_masks[1] = 1
-                        action_masks[7] = 1
-        if down_pos >= 0 and down_pos < self.width * self.height:
-            if down_pos in list(self.units_pos.keys()):
-                down_unit_id = self.units_pos[down_pos].unit_id
-                if down_unit_id in list(self.units.keys()):
-                    down_unit = self.units[down_unit_id]
-                    if unit.unit_type.canHarvest and down_unit.unit_type.name == 'Resource' and down_unit.carried_resource > 0 and unit.carried_resource == 0:
-                        action_masks[2] = 1
-                        action_masks[12] = 1
-                    if unit.unit_type.canReturn and down_unit.unit_type.isStockpile and down_unit.player_id == unit.player_id and unit.carried_resource > 0:
-                        action_masks[3] = 1
-                        action_masks[16] = 1
-            elif down_pos not in self.buliding_pos:
-                if len(unit.unit_type.produces) > 0:
-                    action_masks[4] = 1
-                    action_masks[20] = 1
-                    for produce_type in unit.unit_type.produces:
-                        if produce_type == "Resource":
-                            action_masks[22] = 1
-                        elif produce_type == "Base":
-                            action_masks[23] = 1
-                        elif produce_type == "Barracks":
-                            action_masks[24] = 1
-                        elif produce_type == "Worker":
-                            action_masks[25] = 1
-                        elif produce_type == "Light":
-                            action_masks[26] = 1
-                        elif produce_type == "Heavy":
-                            action_masks[27] = 1
-                        elif produce_type == "Ranged":
-                            action_masks[28] = 1
-                    if unit.unit_type.canMove:
-                        action_masks[1] = 1
-                        action_masks[8] = 1
-        if left_pos >= 0 and left_pos < self.width * self.height:
-            if left_pos in list(self.units_pos.keys()):
-                left_unit_id = self.units_pos[left_pos].unit_id
-                if left_unit_id in list(self.units.keys()):
-                    left_unit = self.units[left_unit_id]
-                    if unit.unit_type.canHarvest and left_unit.unit_type.name == 'Resource' and left_unit.carried_resource > 0 and unit.carried_resource == 0:
-                        action_masks[2] = 1
-                        action_masks[13] = 1
-                    if unit.unit_type.canReturn and left_unit.unit_type.isStockpile and left_unit.player_id == unit.player_id and unit.carried_resource > 0:
-                        action_masks[3] = 1
-                        action_masks[17] = 1
-            elif left_pos not in self.buliding_pos:
-                if len(unit.unit_type.produces) > 0:
-                    action_masks[4] = 1
-                    action_masks[21] = 1
-                    for produce_type in unit.unit_type.produces:
-                        if produce_type == "Resource":
-                            action_masks[22] = 1
-                        elif produce_type == "Base":
-                            action_masks[23] = 1
-                        elif produce_type == "Barracks":
-                            action_masks[24] = 1
-                        elif produce_type == "Worker":
-                            action_masks[25] = 1
-                        elif produce_type == "Light":
-                            action_masks[26] = 1
-                        elif produce_type == "Heavy":
-                            action_masks[27] = 1
-                        elif produce_type == "Ranged":
-                            action_masks[28] = 1
-                    if unit.unit_type.canMove:
-                        action_masks[1] = 1
-                        action_masks[9] = 1
+            else:
+                target_unit:Unit = self.units_pos[pos]
+                target_unit_id = target_unit.unit_id
+                if unit_id not in list(self.units.keys()):
+                    continue
+                if target_unit.unit_type.name == 'Resource' and unit.carried_resource < 1 and unit.unit_type.canHarvest:
+                    action_masks[2] = 1
+                    action_masks[10+i] = 1
+                if target_unit.unit_type.isStockpile and unit.carried_resource > 0 and unit.unit_type.canHarvest:
+                    action_masks[3] = 1
+                    action_masks[14+i] = 1
         if unit.unit_type.canAttack:
             for i in range(-unit.unit_type.attackRange, unit.unit_type.attackRange+1):
                 for j in range(-unit.unit_type.attackRange, unit.unit_type.attackRange+1):

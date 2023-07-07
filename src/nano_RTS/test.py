@@ -12,7 +12,7 @@ if __name__ == "__main__":
     start_time = time.time()
     for i in range(1000000):
         game.render()
-        time.sleep(0.01)
+        time.sleep(0.05)
         #action_list1 = ai1.get_action_list(game.gs)
         action_list1 = ai1.get_random_action_list(game.gs)
         action_list2 = ai2.get_action_list(game.gs)
