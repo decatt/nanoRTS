@@ -1,4 +1,4 @@
-from ai import AI
+from ai import AI, RushAI
 from game import Game
 from wrapper import GameEnv
 
@@ -21,14 +21,11 @@ ent_coef = 0.01
 vf_coef = 0.5
 max_grad_norm = 0.5
 seed = 1
-num_envs = 8
+num_envs = 16
 num_steps = 512
-action_space = [64, 6, 4, 4, 4, 4, 7, 49]
-observation_space = [16,16,27]
 cuda = True
 device = 'cuda'
 pae_length = 256
-map_path = 'maps/8x8/bases8x8.xml'
 rewards_wrights = {
         'win': 10,
         'harvest': 1,
@@ -36,6 +33,21 @@ rewards_wrights = {
         'produce': 0.2,
         'attack': 1
         }
+
+map_path = 'maps\\8x8\\bases8x8.xml'
+map = '16x16'
+if map == '8x8':
+    width = 8
+    height = 8
+    cnn_output_size = 32*2*2
+    map_path = 'maps\\8x8\\bases8x8.xml'
+if map == '16x16':
+    width = 16
+    height = 16
+    cnn_output_size = 32*6*6
+    map_path = 'maps\\16x16\\basesWorkers16x16.xml'
+action_space = [width*height, 6, 4, 4, 4, 4, 7, 49]
+observation_space = [height,width,27]
 
 #main network
 class ActorCritic(nn.Module):
@@ -47,11 +59,11 @@ class ActorCritic(nn.Module):
             layer_init(nn.Conv2d(16, 32, kernel_size=(2, 2))),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init(nn.Linear(32*2*2, 256)),
+            layer_init(nn.Linear(cnn_output_size, 256)),
             nn.ReLU(),
         )
 
-        self.policy_unit = layer_init(nn.Linear(256, 64), std=0.01)
+        self.policy_unit = layer_init(nn.Linear(256, width*height), std=0.01)
         self.policy_type = layer_init(nn.Linear(256, 6), std=0.01)
         self.policy_move = layer_init(nn.Linear(256, 4), std=0.01)
         self.policy_harvest = layer_init(nn.Linear(256, 4), std=0.01)
@@ -66,7 +78,7 @@ class ActorCritic(nn.Module):
                 layer_init(nn.Conv2d(16, 32, kernel_size=(2, 2))),
                 nn.ReLU(),
                 nn.Flatten(),
-                layer_init(nn.Linear(32*2*2, 256)),
+                layer_init(nn.Linear(cnn_output_size, 256)),
                 nn.ReLU(), 
                 layer_init(nn.Linear(256, 1), std=1)
             )
@@ -106,7 +118,7 @@ class Agent:
         self.env = GameEnv([map_path for _ in range(self.num_envs)],rewards_wrights,max_steps = 2000)
         self.obs = self.env.reset()
         self.exps_list = [[] for _ in range(self.num_envs)]
-        self.oppenent = AI(1)
+        self.oppenent = RushAI(1,"Light", width, height)
     
     @torch.no_grad()
     def get_sample_actions(self,states, unit_masks):
@@ -145,7 +157,7 @@ class Agent:
             for i in range(self.num_envs):
                 game:Game = self.env.games[i]
                 vector_action = vector_actions[i]
-                oppe_action = self.oppenent.get_random_action(self.env.games[i])
+                oppe_action = self.oppenent.get_action(self.env.games[i])
                 action = game.vector_to_action(vector_action)
                 actions0.append(action)
                 actions1.append(oppe_action)

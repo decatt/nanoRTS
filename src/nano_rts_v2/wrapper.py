@@ -2,7 +2,7 @@ from game import Game
 from player import Player
 from units import Unit
 from action import Action
-from ai import AI
+from ai import AI, RushAI
 import pygame
 import time
 import numpy as np
@@ -48,6 +48,46 @@ class GameEnv:
                     continue
                 unit:Unit = game.units[unit_pos]
                 if unit.player_id != player_id:
+                    continue
+                if action_type == 'move':
+                    game.begin_move(unit_pos, target_pos)
+                elif action_type == 'harvest':
+                    game.begin_harvest(unit_pos, target_pos)
+                elif action_type == 'return':
+                    game.begin_return(unit_pos, target_pos)
+                elif action_type == 'produce':
+                    game.begin_produce(unit_pos, target_pos, produced_unit_type)
+                elif action_type == 'attack':
+                    game.begin_attack(unit_pos, target_pos)
+            reward,done,winner = game.run()
+            if done:
+                state = game.reset()
+            if game.game_time >= self.max_steps:
+                done = True
+                state = game.reset()
+            states.append(state)
+            rewards.append(reward)
+            dones.append(done)
+            winners.append(winner)
+        return states, rewards, dones, winners
+
+    def step_action_lists(self, action_lists):
+        states = []
+        rewards = []
+        dones = []
+        winners = []
+        for i in range(len(self.games)):
+            game:Game = self.games[i]
+            state = game.get_grid_state()
+            action_list = action_lists[i]
+            for action in action_list:
+                unit_pos = action.unit_pos
+                if unit_pos is None:
+                    continue
+                action_type = action.action_type
+                target_pos = action.target_pos
+                produced_unit_type = action.produced_unit_type
+                if unit_pos not in list(game.units.keys()):
                     continue
                 if action_type == 'move':
                     game.begin_move(unit_pos, target_pos)
@@ -195,20 +235,23 @@ if __name__ == "__main__":
         'produce': 1,
         'attack': 1
         }
-    env = GameEnv(['maps\\NoWhereToRun9x8.xml'], rewards_wrights)
+    width = 16
+    height = 16
+    env = GameEnv(['maps\\16x16\\basesWorkers16x16.xml'], rewards_wrights, 5000)
     ai0 = AI(0)
-    ai1 = AI(1)
+    ai1 = RushAI(1, "Light", width, height)
     step = 0
     start_time = time.time()
     while True:
-        #env.render()
-        actions0 = []
-        actions1 = []
+        env.render()
+        action_lists = []
         for i in range(len(env.games)):
+            action_list = []
             game = env.games[i]
-            actions0.append(ai0.get_random_action(game))
-            actions1.append(ai1.get_random_action(game))
-        env.step(actions0, actions1)
+            action_list.append(ai0.get_random_action(game))
+            action_list.append(ai1.get_action(game))
+            action_lists.append(action_list)
+        states, rewards, dones, winners = env.step_action_lists(action_lists)
         step += 1
         if step % 1000 == 0:
             print("step: ", step, "time: ", time.time() - start_time)

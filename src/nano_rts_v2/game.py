@@ -170,6 +170,8 @@ class Game:
     def can_move(self, unit_pos:int, target_pos:int) -> bool:
         if unit_pos not in list(self.units.keys()):
             return False
+        if self.units[unit_pos].unit_type.canMove == False:
+            return False
         if target_pos<0 or target_pos>=self.width*self.height:
             return False
         if target_pos in self.building_pos:
@@ -272,12 +274,13 @@ class Game:
     def begin_produce(self, unit_pos:int, target_pos:int, unit_type_name:str) -> None:
         if not self.can_produce(unit_pos, target_pos, unit_type_name):
             return
-        if self.players[self.units[unit_pos].player_id].resource - self.players[self.units[unit_pos].player_id].using_resource < self.unit_types[unit_type_name].cost:
+        if self.players[self.units[unit_pos].player_id].resource < self.unit_types[unit_type_name].cost:
             return
         self.units[unit_pos].current_action = 'produce'
         self.units[unit_pos].current_action_target = target_pos
         self.units[unit_pos].execute_current_action_time = self.unit_types[unit_type_name].produceTime
         self.units[unit_pos].building_unit_type = self.unit_types[unit_type_name]
+        self.players[self.units[unit_pos].player_id].resource -= self.units[unit_pos].building_unit_type.cost
 
     def begin_attack(self, unit_pos:int, target_pos:int) -> None:
         if not self.can_attack(unit_pos, target_pos):
@@ -369,6 +372,7 @@ class Game:
         if unit_pos not in list(self.units.keys()):
             return (0,0)
         if self.units[unit_pos].current_action != 'produce':
+            self.players[self.units[unit_pos].player_id].resource += self.units[unit_pos].building_unit_type.cost
             self.stop_unit_action(unit_pos)
             return (0,0)
         if self.units[unit_pos].execute_current_action_time > 0:
@@ -376,12 +380,13 @@ class Game:
             return (0,0)
         target_pos = self.units[unit_pos].current_action_target
         if not self.can_produce(unit_pos, target_pos, self.units[unit_pos].building_unit_type.name):
+            self.players[self.units[unit_pos].player_id].resource += self.units[unit_pos].building_unit_type.cost
             self.stop_unit_action(unit_pos)
             return (0,0)
         prodeced_unit = Unit(self.produce_unit_id, self.units[unit_pos].player_id, target_pos, self.width, self.units[unit_pos].building_unit_type)
         self.units[target_pos] = prodeced_unit
         self.produce_unit_id += 1
-        self.players[self.units[unit_pos].player_id].resource -= self.units[unit_pos].building_unit_type.cost
+        
         self.stop_unit_action(unit_pos)
         if self.units[unit_pos].player_id == 0:
             return (self.reward_weight['produce'],0)
