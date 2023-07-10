@@ -5,7 +5,7 @@ Inspired by microRTS, nanoRTS aims to offer similar functionality but purely in 
 
 ### Structure
 nano_rts_v2
-----
+/---
 
 ## Old nanoRTS
 
