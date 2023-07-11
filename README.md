@@ -1,7 +1,7 @@
 # nanoRTS
 
 Inspired by microRTS, nanoRTS aims to offer similar functionality but purely in Python (at least to start with).
-![image](https://github.com/decatt/nanoRTS/blob/main/ezgif-5-a9b07ce47d.gif)
+![image](https://github.com/decatt/nanoRTS/blob/main/nano_rts_demo.gif)
 
 ## Old nanoRTS
 
