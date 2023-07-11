@@ -1,7 +1,6 @@
 from units import Unit, UnitType, load_unit_types
 from player import Player
-from pos import Pos, distance, next_dir_pos, next_attack_pos
-from collections import deque
+from pos import distance, next_dir_pos, next_attack_pos
 from action import Action
 
 import xml.etree.ElementTree as ET
@@ -13,8 +12,8 @@ class Game:
         self.map_path = path
         self.reward_weight = reward_weight
         self.unit_types = load_unit_types() # unit_type_name -> unit_type
-        self.units = dict() # unit_int_pos -> unit
-        self.players = dict() # player_id -> player
+        self.units:dict[int,Unit] = dict() # unit_int_pos -> unit
+        self.players:dict[int,Player] = dict() # player_id -> player
         self.building_pos = []
         self.width = 0
         self.height = 0

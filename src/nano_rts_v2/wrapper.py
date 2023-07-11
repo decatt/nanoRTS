@@ -4,18 +4,18 @@ from units import Unit
 from action import Action
 from ai import AI, RushAI
 import pygame
-import time
 import numpy as np
 
 class GameEnv:
-    def __init__(self, map_paths, reward_wrights, max_steps):
-        self.games = []
+    def __init__(self, map_paths, reward_wrights, max_steps, skip_frames=5):
+        self.games:list[Game] = []
         self.map_paths = map_paths
         self.reward_wrights = reward_wrights
         self.max_steps = max_steps
         for map_path in map_paths:
             self.games.append(Game(map_path, reward_wrights))
         self.num_envs = len(self.games)
+        self.skip_frames = skip_frames
 
         pygame.init()
         self.shape_size = 32
@@ -25,7 +25,7 @@ class GameEnv:
         self.info_height = 100
         self.viewer = None
 
-    def step(self, actions0, actions1):
+    def step(self, actions0:Action, actions1:Action)->tuple[list[np.ndarray], list[int], list[bool], list]:
         states = []
         rewards = []
         dones = []
@@ -71,13 +71,15 @@ class GameEnv:
             winners.append(winner)
         return states, rewards, dones, winners
 
-    def step_action_lists(self, action_lists):
+    def step_action_lists(self, action_lists:list[list[Action]])->tuple[list[np.ndarray], list[int], list[bool], list]:
         states = []
         rewards = []
         dones = []
         winners = []
         for i in range(len(self.games)):
             game:Game = self.games[i]
+            if game.game_time % self.skip_frames == 0:
+                game.run()
             state = game.get_grid_state()
             action_list = action_lists[i]
             for action in action_list:
@@ -111,7 +113,6 @@ class GameEnv:
             winners.append(winner)
         return states, rewards, dones, winners
 
-
     def reset(self)->np.ndarray:
         states = []
         for i in range(len(self.games)):
@@ -119,7 +120,7 @@ class GameEnv:
             states.append(state)
         return np.array(states)
     
-    def render(self):
+    def render(self)->None:
         game:Game = self.games[0]
         PLAYER_COLORS = {-1:(0,255,0), 0:(255,0,0), 1:(0,0,255)}
         UNIT_TYPE_COLORS = {
@@ -228,30 +229,26 @@ class GameEnv:
         return np.array(action_masks)
 
 if __name__ == "__main__":
-    rewards_wrights = {
-        'win': 10,
-        'harvest': 1,
-        'return': 1,
-        'produce': 1,
-        'attack': 1
-        }
+    rewards_wrights = {'win': 10, 'harvest': 1, 'return': 1, 'produce': 1, 'attack': 1}
+    num_envs = 1
+    map_paths = ['maps\\16x16\\basesWorkers16x16.xml' for _ in range(num_envs)]
+    max_steps=5000
+    env = GameEnv(map_paths, rewards_wrights, max_steps)
+    
     width = 16
     height = 16
-    env = GameEnv(['maps\\16x16\\basesWorkers16x16.xml'], rewards_wrights, 5000)
     ai0 = AI(0)
     ai1 = RushAI(1, "Light", width, height)
-    step = 0
-    start_time = time.time()
-    while True:
+
+    for _ in range(10000):
         env.render()
         action_lists = []
         for i in range(len(env.games)):
             action_list = []
             game = env.games[i]
+            # action: Action(unit_pos:int, action_type:str, target_pos:int, produced_unit_type:UnitType=None)
             action_list.append(ai0.get_random_action(game))
             action_list.append(ai1.get_action(game))
             action_lists.append(action_list)
+        #action_lists: List[List[Action]]
         states, rewards, dones, winners = env.step_action_lists(action_lists)
-        step += 1
-        if step % 1000 == 0:
-            print("step: ", step, "time: ", time.time() - start_time)

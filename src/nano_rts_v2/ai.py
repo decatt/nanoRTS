@@ -209,7 +209,8 @@ class RushAI(AI):
                     if score < closest_score:
                         closest_score = score
                         closest_resource = resource
-                actions.append(self.get_unit_action(worker_pos,closest_resource,game))
+                if closest_resource is not None:
+                    actions.append(self.get_unit_action(worker_pos,closest_resource,game))
             else:
                 closest_base = None
                 closest_score = 100000000
@@ -218,7 +219,8 @@ class RushAI(AI):
                     if score < closest_score:
                         closest_score = score
                         closest_base = base
-                actions.append(self.get_unit_action(worker_pos,closest_base,game))
+                if closest_base is not None:
+                    actions.append(self.get_unit_action(worker_pos,closest_base,game))
         if len(free_workers)>0:
             if len(self.allay_barracks) + len(self.bulid_barracks_pos) < self.num_barracks and game.players[self.player_id].resource >= game.unit_types["Barracks"].cost + self.used_resource:
                 self.find_pos_to_bulid_barracks(game)
@@ -305,8 +307,9 @@ class RushAI(AI):
                 if score < closest_score:
                     closest_score = score
                     closest_enemy = enemy
-            next_pos = self.pf.get_move_pos(barracks_pos, closest_enemy, self.obstacles)
-            actions.append(self.get_unit_action(barracks_pos,next_pos,game))
+            if closest_enemy is not None:
+                next_pos = self.pf.get_move_pos(barracks_pos, closest_enemy, self.obstacles)
+                actions.append(self.get_unit_action(barracks_pos,next_pos,game))
         return actions
     
     def base_actions(self, game:Game):
@@ -325,8 +328,9 @@ class RushAI(AI):
                     if score < closest_score:
                         closest_score = score
                         closest_resource = resource
-                next_pos = self.pf.get_move_pos(base_pos, closest_resource, self.obstacles)
-                actions.append(self.get_unit_action(base_pos,next_pos,game))
+                if closest_resource is not None:
+                    next_pos = self.pf.get_move_pos(base_pos, closest_resource, self.obstacles)
+                    actions.append(self.get_unit_action(base_pos,next_pos,game))
             else:
                 closest_enemy = None
                 closest_score = 100000000

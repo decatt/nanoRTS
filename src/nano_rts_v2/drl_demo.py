@@ -26,13 +26,7 @@ num_steps = 512
 cuda = True
 device = 'cuda'
 pae_length = 256
-rewards_wrights = {
-        'win': 10,
-        'harvest': 1,
-        'return': 1,
-        'produce': 0.2,
-        'attack': 1
-        }
+rewards_wrights = {'win': 10,'harvest': 1,'return': 1,'produce': 0.2,'attack': 1}
 
 map_path = 'maps\\8x8\\bases8x8.xml'
 map = '16x16'
@@ -210,10 +204,7 @@ class Calculator:
         
         self.calculate_net = ActorCritic()
         self.calculate_net.to(self.device)
-    
         self.share_optim = torch.optim.Adam(params=self.net.parameters(), lr=lr)
-        
-        
         self.states_list = None
         self.actions_list = None
         self.rewards_list = None
@@ -358,12 +349,7 @@ if __name__ == "__main__":
 
         print("version:",version,"reward:",infos["mean_rewards"])
 
-        samples = []
-
-        for s in samples_list:
-            samples.append(s)
-        
-        calculator.begin_batch_train(samples)
+        calculator.begin_batch_train(samples_list)
         for _ in range(REPEAT_TIMES):
             calculator.generate_grads()
         calculator.end_batch_train()
