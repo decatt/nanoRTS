@@ -78,7 +78,7 @@ class GameEnv:
         winners = []
         for i in range(len(self.games)):
             game:Game = self.games[i]
-            if game.game_time % self.skip_frames == 0:
+            if game.game_time % self.skip_frames != 0:
                 game.run()
             state = game.get_grid_state()
             action_list = action_lists[i]
