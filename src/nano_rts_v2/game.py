@@ -11,6 +11,7 @@ class Game:
     def __init__(self,path:str,reward_weight:dict) -> None:
         self.map_path = path
         self.reward_weight = reward_weight
+        #load unit types from json file
         self.unit_types = load_unit_types() # unit_type_name -> unit_type
         self.units:dict[int,Unit] = dict() # unit_int_pos -> unit
         self.players:dict[int,Player] = dict() # player_id -> player
@@ -19,6 +20,7 @@ class Game:
         self.height = 0
         self.produce_unit_id = 0 # id for next new unit
         self.terrain = None
+        # load map from xml file
         self.load_map(self.map_path)
         self.game_time = 0
 

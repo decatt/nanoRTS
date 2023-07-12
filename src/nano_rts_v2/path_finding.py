@@ -64,20 +64,20 @@ class BFS(PathFinding):
         return path
     
     def get_move_pos(self, start:int, target:int, obstacles:set, max_range=6, ignore_target:bool = True)->int:
-        move_pos = start
-        if self.get_distance(start, target) > max_range:
-            lowest_distance = 999999
-            for possible_move_pos in [start-self.width, start+1, start+self.width, start-1, start]:
-                if possible_move_pos<0 or possible_move_pos>=self.width*self.height:
-                    continue
-                if possible_move_pos in obstacles:
-                    continue
-                if self.get_distance(possible_move_pos, target) < lowest_distance:
-                    lowest_distance = self.get_distance(possible_move_pos, target)
-                    move_pos = possible_move_pos
-        else:
+        if self.get_distance(start, target) <= max_range:
             path = self.find_path(start, target, obstacles, ignore_target)
             if len(path) > 0:
-                move_pos = path[0]
+                return path[0]
+            
+        move_pos = start
+        lowest_distance = 999999
+        for possible_move_pos in [start-self.width, start+1, start+self.width, start-1, start]:
+            if possible_move_pos<0 or possible_move_pos>=self.width*self.height:
+                continue
+            if possible_move_pos in obstacles:
+                continue
+            if self.get_distance(possible_move_pos, target) < lowest_distance:
+                lowest_distance = self.get_distance(possible_move_pos, target)
+                move_pos = possible_move_pos
         return move_pos
 

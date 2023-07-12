@@ -18,6 +18,7 @@ class GameEnv:
         self.skip_frames = skip_frames
 
         pygame.init()
+        pygame.display.set_caption("NanoRTS")
         self.shape_size = 32
         self.bordersize = self.shape_size // 8
         self.line_width = self.shape_size // 8
@@ -25,7 +26,7 @@ class GameEnv:
         self.info_height = 100
         self.viewer = None
 
-    def step(self, actions0:Action, actions1:Action)->tuple[list[np.ndarray], list[int], list[bool], list]:
+    def step(self, actions0:list[Action], actions1:list[Action])->tuple[list[np.ndarray], list[int], list[bool], list]:
         states = []
         rewards = []
         dones = []
@@ -78,7 +79,7 @@ class GameEnv:
         winners = []
         for i in range(len(self.games)):
             game:Game = self.games[i]
-            while game.game_time % self.skip_frames != 0:
+            if game.game_time % self.skip_frames == 0:
                 game.run()
             state = game.get_grid_state()
             action_list = action_lists[i]
@@ -237,7 +238,7 @@ if __name__ == "__main__":
     
     width = 16
     height = 16
-    ai0 = AI(0)
+    ai0 = RushAI(0, "Random", width, height)
     ai1 = RushAI(1, "Light", width, height)
 
     for _ in range(10000):
@@ -247,7 +248,7 @@ if __name__ == "__main__":
             action_list = []
             game = env.games[i]
             # action: Action(unit_pos:int, action_type:str, target_pos:int, produced_unit_type:UnitType=None)
-            action_list.append(ai0.get_random_action(game))
+            action_list.append(ai0.get_action(game))
             action_list.append(ai1.get_action(game))
             action_lists.append(action_list)
         #action_lists: List[List[Action]]

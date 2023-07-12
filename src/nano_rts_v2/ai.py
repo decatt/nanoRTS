@@ -21,15 +21,23 @@ class AI:
 class RushAI(AI):
     def __init__(self, player_id:int, melee_unit_type:str, width:int, height:int):
         super().__init__(player_id)
-        self.melee_uit_type = melee_unit_type
+        self.random_melee = False
+        self.melee_uit_type = "Worker"
         self.max_harvest_worker = 1
         self.max_barracks = 1
         self.max_worker = 100
-        if melee_unit_type == "Worker":
+        if melee_unit_type == "Random":
+            self.random_melee = True
+            self.num_barracks = 1
+            self.max_worker = 5
+            self.max_harvest_worker = 2
+        elif melee_unit_type == "Worker":
+            self.melee_uit_type = melee_unit_type
             self.num_barracks = 0
             self.max_worker = 100
             self.max_harvest_worker = 1
         else:
+            self.melee_uit_type = melee_unit_type
             self.num_barracks = 1
             self.max_worker = 5
             self.max_harvest_worker = 2
@@ -83,6 +91,10 @@ class RushAI(AI):
         self.pos_to_build_base = []
         self.used_resource = 0
         self.bulid_barracks_pos = []
+        if self.random_melee:
+            melee_units = ["Heavy", "Light", "Ranged"]
+            self.melee_uit_type = random.choice(melee_units)
+
     
     def get_random_action(self, game:Game):
         available_actions = game.get_player_available_actions(self.player_id)
